@@ -1,0 +1,1480 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+import 'package:audioplayers/audioplayers.dart';
+import 'package:vibration/vibration.dart';
+
+void main() => runApp(const SnakeProGame());
+
+class SnakeProGame extends StatelessWidget {
+  const SnakeProGame({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Snake Battle',
+      theme: ThemeData.dark(),
+      home: const StartScreen(),
+    );
+  }
+}
+
+class SnakeSkin {
+  final String id;
+  final String name;
+  final Color color;
+  final int price;
+  final int bodyStyle;
+
+  const SnakeSkin({
+    required this.id,
+    required this.name,
+    required this.color,
+    required this.price,
+    required this.bodyStyle,
+  });
+}
+
+class BackgroundPack {
+  final String id;
+  final String asset;
+  final String name;
+  final int price;
+
+  const BackgroundPack({
+    required this.id,
+    required this.asset,
+    required this.name,
+    required this.price,
+  });
+}
+
+class GameSettings {
+  static int totalPoints = 0;
+  static int highScore = 0;
+  static int level = 1;
+  static bool soundEnabled = true;
+  static bool vibrationEnabled = true;
+  static String currentBackground = 'forest';
+  static String currentSkinId = 'default';
+  static final Map<String, bool> unlockedSkins = {'default': true};
+  static final Map<String, bool> unlockedBackgrounds = {'forest': true};
+
+  static final List<SnakeSkin> skins = [
+    const SnakeSkin(id: 'default', name: 'Emerald', color: Color(0xFF4CAF50), price: 0, bodyStyle: 1),
+    const SnakeSkin(id: 'ocean', name: 'Ocean', color: Color(0xFF2196F3), price: 100, bodyStyle: 1),
+    const SnakeSkin(id: 'sunset', name: 'Sunset', color: Color(0xFFFF5722), price: 200, bodyStyle: 2),
+    const SnakeSkin(id: 'neon', name: 'Neon', color: Color(0xFF9C27B0), price: 300, bodyStyle: 2),
+    const SnakeSkin(id: 'gold', name: 'Gold', color: Color(0xFFFFC107), price: 500, bodyStyle: 1),
+    const SnakeSkin(id: 'ice', name: 'Ice', color: Color(0xFF00BCD4), price: 400, bodyStyle: 2),
+  ];
+
+  static final List<BackgroundPack> backgrounds = [
+    const BackgroundPack(id: 'forest', asset: 'forest', name: 'Forest', price: 0),
+    const BackgroundPack(id: 'desert', asset: 'desert', name: 'Desert', price: 50),
+    const BackgroundPack(id: 'city', asset: 'city', name: 'City', price: 100),
+    const BackgroundPack(id: 'night', asset: 'night', name: 'Night City', price: 150),
+    const BackgroundPack(id: 'space', asset: 'space', name: 'Space', price: 200),
+    const BackgroundPack(id: 'ocean', asset: 'ocean', name: 'Deep Ocean', price: 250),
+    const BackgroundPack(id: 'volcano', asset: 'volcano', name: 'Volcano', price: 300),
+    const BackgroundPack(id: 'iceworld', asset: 'iceworld', name: 'Ice World', price: 350),
+  ];
+
+  static SnakeSkin get currentSkin =>
+      skins.firstWhere((skin) => skin.id == currentSkinId, orElse: () => skins.first);
+}
+
+class StartScreen extends StatelessWidget {
+  const StartScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.green.shade900, Colors.teal.shade900],
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withAlpha(50),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black26, blurRadius: 20, spreadRadius: 5),
+                  ],
+                ),
+                child: const Icon(Icons.catching_pokemon, size: 80, color: Colors.white),
+              ),
+              const SizedBox(height: 20),
+              const Text('SNAKE BATTLE', 
+                style: TextStyle(fontSize: 42, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 2)),
+              const SizedBox(height: 10),
+              const Text('Classic Snake Game with Modern Twist', 
+                style: TextStyle(color: Colors.white70, fontSize: 16)),
+              const SizedBox(height: 40),
+              _btn(context, 'START GAME', Colors.green, Icons.play_arrow, 
+                () => Navigator.push(context, MaterialPageRoute(builder: (c) => const GamePlayScreen()))),
+              const SizedBox(height: 15),
+              _btn(context, 'SHOP', Colors.orange, Icons.store, 
+                () => Navigator.push(context, MaterialPageRoute(builder: (c) => const StoreScreen()))),
+              const SizedBox(height: 15),
+              _btn(context, 'SETTINGS', Colors.blue, Icons.settings, 
+                () => Navigator.push(context, MaterialPageRoute(builder: (c) => const SettingsScreen()))),
+              const SizedBox(height: 30),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text('High Score: ${GameSettings.highScore}',
+                  style: const TextStyle(color: Colors.yellow, fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _btn(BuildContext context, String text, Color color, IconData icon, VoidCallback onPressed) => 
+    ElevatedButton.icon(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        minimumSize: const Size(250, 55),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        elevation: 5,
+      ),
+      onPressed: onPressed,
+      icon: Icon(icon, color: Colors.white),
+      label: Text(text, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+    );
+}
+
+class SnakeEntity {
+  final List<Offset> body;
+  final Color color;
+  final String skinId;
+  double angle;
+  bool isPlayer;
+  bool alive;
+
+  SnakeEntity({
+    required this.body,
+    required this.color,
+    required this.skinId,
+    this.angle = 0,
+    this.isPlayer = false,
+    this.alive = true,
+  });
+
+  Offset get head => body.last;
+}
+
+class FoodItem {
+  Offset pos;
+  final String emoji;
+  final Color color;
+
+  FoodItem({required this.pos, required this.emoji, required this.color});
+}
+
+const List<String> _fruitEmojis = ['🍎', '🍌', '🍉', '🍒', '🍊', '🍍', '🥝', '🥭', '🍓', '🍇', '🍑', '🍒'];
+const List<Color> _fruitColors = [Colors.red, Colors.orange, Colors.purple, Colors.green, Colors.yellow, Colors.pink, Colors.blue];
+
+class GamePlayScreen extends StatefulWidget {
+  const GamePlayScreen({super.key});
+
+  @override
+  State<GamePlayScreen> createState() => _GamePlayScreenState();
+}
+
+class _GamePlayScreenState extends State<GamePlayScreen> with TickerProviderStateMixin {
+  final math.Random _rnd = math.Random();
+  late List<SnakeEntity> snakes;
+  late List<FoodItem> foods;
+  double angle = 0;
+  bool isTurbo = false;
+  bool isDanger = false;
+  DateTime? gameStartTime;
+  Timer? gameTimer;
+  Timer? movementTimer;
+  
+  // Smooth movement
+  late AnimationController _smoothController;
+  
+  // Parallax background
+  double _backgroundOffsetX = 0;
+  double _backgroundOffsetY = 0;
+  
+  // Health and invincibility
+  int _playerHealth = 3;
+  bool _isInvincible = true;
+  DateTime? _lastDamageTime;
+  
+  // Progressive speed
+  double _baseSpeed = 3.5;
+  double _currentSpeed = 3.5;
+  
+  // Visual effects
+  double _shakeOffset = 0;
+  DateTime? _shakeEndTime;
+  
+  AudioPlayer? backgroundMusic;
+  bool assetsLoaded = false;
+  Size screenSize = Size.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    _smoothController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 50),
+    )..addListener(() {
+      if (mounted) setState(() {});
+    });
+    
+    _startMusic();
+    
+    // Grace period
+    _isInvincible = true;
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _isInvincible = false);
+    });
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      screenSize = MediaQuery.of(context).size;
+      _resetGame();
+      _startGameLoop();
+    });
+  }
+
+  void _startMusic() {
+    if (!GameSettings.soundEnabled) return;
+    backgroundMusic?.dispose();
+    backgroundMusic = AudioPlayer();
+    backgroundMusic!.setReleaseMode(ReleaseMode.loop);
+    backgroundMusic!.play(AssetSource('audio/music.mp3'));
+  }
+
+  void _startGameLoop() {
+    gameTimer?.cancel();
+    movementTimer?.cancel();
+    
+    gameTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
+      if (mounted) _updateGame();
+    });
+    
+    movementTimer = Timer.periodic(const Duration(milliseconds: 80), (_) {
+      if (mounted) _updateMovement();
+    });
+  }
+
+  void _resetGame() {
+    gameStartTime = DateTime.now();
+    GameSettings.totalPoints = 0;
+    GameSettings.level = 1;
+    _playerHealth = 3;
+    _currentSpeed = _baseSpeed;
+    _backgroundOffsetX = 0;
+    _backgroundOffsetY = 0;
+    _shakeOffset = 0;
+    
+    final center = Offset(screenSize.width / 2, screenSize.height / 2);
+    
+    // Player snake with 5 segments
+    final playerBody = <Offset>[
+      Offset(center.dx - 40, center.dy),
+      Offset(center.dx - 30, center.dy),
+      Offset(center.dx - 20, center.dy),
+      Offset(center.dx - 10, center.dy),
+      Offset(center.dx, center.dy),
+    ];
+    
+    // Enemies at safe distance
+    final enemy1Start = Offset(80, screenSize.height / 2);
+    final enemy2Start = Offset(screenSize.width - 80, screenSize.height / 2);
+    
+    snakes = [
+      SnakeEntity(
+        body: playerBody,
+        color: GameSettings.currentSkin.color,
+        skinId: GameSettings.currentSkin.id,
+        angle: 0,
+        isPlayer: true,
+        alive: true,
+      ),
+      SnakeEntity(
+        body: [
+          Offset(enemy1Start.dx, enemy1Start.dy - 30),
+          Offset(enemy1Start.dx, enemy1Start.dy - 15),
+          Offset(enemy1Start.dx, enemy1Start.dy),
+          Offset(enemy1Start.dx, enemy1Start.dy + 15),
+          Offset(enemy1Start.dx, enemy1Start.dy + 30),
+        ],
+        color: Colors.blueAccent,
+        skinId: 'ocean',
+        angle: math.pi / 2,
+        isPlayer: false,
+        alive: true,
+      ),
+      SnakeEntity(
+        body: [
+          Offset(enemy2Start.dx - 40, enemy2Start.dy),
+          Offset(enemy2Start.dx - 30, enemy2Start.dy),
+          Offset(enemy2Start.dx - 20, enemy2Start.dy),
+          Offset(enemy2Start.dx - 10, enemy2Start.dy),
+          Offset(enemy2Start.dx, enemy2Start.dy),
+          Offset(enemy2Start.dx + 10, enemy2Start.dy),
+        ],
+        color: Colors.pinkAccent,
+        skinId: 'sunset',
+        angle: -math.pi / 2,
+        isPlayer: false,
+        alive: true,
+      ),
+    ];
+    
+    foods = List.generate(12, (_) => _randomFood());
+    isDanger = false;
+    angle = 0;
+  }
+
+  FoodItem _randomFood() {
+    return FoodItem(
+      pos: Offset(
+        _rnd.nextDouble() * (screenSize.width - 80) + 40,
+        _rnd.nextDouble() * (screenSize.height - 80) + 40,
+      ),
+      emoji: _fruitEmojis[_rnd.nextInt(_fruitEmojis.length)],
+      color: _fruitColors[_rnd.nextInt(_fruitColors.length)],
+    );
+  }
+
+  void _updateGame() {
+    if (!mounted) return;
+    
+    // Update progressive speed based on points
+    _currentSpeed = _baseSpeed + (GameSettings.totalPoints / 150) * 0.4;
+    if (_currentSpeed > 8.5) _currentSpeed = 8.5;
+    
+    // Update level
+    final int newLevel = (GameSettings.totalPoints ~/ 100) + 1;
+    if (newLevel > GameSettings.level) {
+      GameSettings.level = newLevel;
+      foods.addAll(List.generate(2, (_) => _randomFood()));
+      
+      if (GameSettings.soundEnabled) {
+        AudioPlayer().play(AssetSource('audio/levelup.mp3'));
+      }
+    }
+    
+    // Update parallax background
+    final playerSnake = snakes.firstWhere((s) => s.isPlayer);
+    _backgroundOffsetX += (playerSnake.head.dx - screenSize.width / 2) * 0.015;
+    _backgroundOffsetY += (playerSnake.head.dy - screenSize.height / 2) * 0.015;
+    
+    if (_backgroundOffsetX.abs() > screenSize.width) _backgroundOffsetX = 0;
+    if (_backgroundOffsetY.abs() > screenSize.height) _backgroundOffsetY = 0;
+    
+    // Update danger status
+    isDanger = snakes
+        .where((s) => !s.isPlayer && s.alive)
+        .any((enemy) => (playerSnake.head - enemy.head).distance < 150);
+    
+    // Update shake effect
+    if (_shakeEndTime != null && DateTime.now().isAfter(_shakeEndTime!)) {
+      _shakeOffset = 0;
+      _shakeEndTime = null;
+    } else if (_shakeEndTime != null) {
+      _shakeOffset = (_rnd.nextDouble() - 0.5) * 4;
+    }
+    
+    setState(() {});
+  }
+
+  void _updateMovement() {
+    if (!mounted) return;
+    
+    final playerSnake = snakes.firstWhere((s) => s.isPlayer);
+    if (playerSnake.alive) {
+      playerSnake.angle = angle;
+    }
+    
+    for (final snake in snakes) {
+      if (!snake.alive) continue;
+      
+      if (!snake.isPlayer) {
+        _updateEnemyAngle(snake);
+      }
+      
+      final double speedMultiplier = snake.isPlayer ? 1.0 : 0.55;
+      final double turboMultiplier = (isTurbo && snake.isPlayer) ? 1.9 : 1.0;
+      final double speed = _currentSpeed * speedMultiplier * turboMultiplier;
+      
+      final head = snake.head;
+      Offset nextHead = Offset(
+        head.dx + math.cos(snake.angle) * speed,
+        head.dy + math.sin(snake.angle) * speed,
+      );
+      
+      // Wrap around screen with padding
+      if (nextHead.dx < -40) nextHead = Offset(screenSize.width + 40, nextHead.dy);
+      if (nextHead.dx > screenSize.width + 40) nextHead = Offset(-40, nextHead.dy);
+      if (nextHead.dy < -40) nextHead = Offset(nextHead.dx, screenSize.height + 40);
+      if (nextHead.dy > screenSize.height + 40) nextHead = Offset(nextHead.dx, -40);
+      
+      // Smooth interpolation
+      final currentHead = snake.body.last;
+      final smoothedPosition = Offset.lerp(currentHead, nextHead, 0.22)!;
+      
+      snake.body.add(smoothedPosition);
+      
+      // Check food collision
+      bool ate = false;
+      for (int i = 0; i < foods.length; i++) {
+        if ((smoothedPosition - foods[i].pos).distance < 28) {
+          foods.removeAt(i);
+          foods.add(_randomFood());
+          
+          if (snake.isPlayer) {
+            GameSettings.totalPoints += 10;
+            if (GameSettings.totalPoints > GameSettings.highScore) {
+              GameSettings.highScore = GameSettings.totalPoints;
+            }
+            
+            if (GameSettings.soundEnabled) {
+              AudioPlayer().play(AssetSource('audio/eat.mp3'));
+            }
+            if (GameSettings.vibrationEnabled) {
+              Vibration.vibrate(duration: 50);
+            }
+            
+            // Trigger shake effect
+            _shakeEndTime = DateTime.now().add(const Duration(milliseconds: 100));
+          }
+          
+          // Grow snake
+          snake.body.insert(0, snake.body.first);
+          ate = true;
+          break;
+        }
+      }
+      
+      if (!ate && snake.body.length > 3) {
+        snake.body.removeAt(0);
+      }
+    }
+    
+    // Check collisions
+    _checkCollisions();
+    
+    // Check if player lost
+    if (_playerLost(playerSnake)) {
+      _gameOver();
+    }
+    
+    setState(() {});
+  }
+
+  bool _playerLost(SnakeEntity player) {
+    if (!player.alive) return true;
+    
+    // Invincibility grace period
+    if (_isInvincible) return false;
+    
+    final head = player.head;
+    
+    // Self collision (skip first 3 segments)
+    for (int i = 0; i < player.body.length - 4; i++) {
+      if ((head - player.body[i]).distance < 18) {
+        _applyDamage();
+        return false;
+      }
+    }
+    
+    // Enemy collision
+    for (final enemy in snakes.where((s) => !s.isPlayer && s.alive)) {
+      for (final segment in enemy.body) {
+        if ((head - segment).distance < 22) {
+          _applyDamage();
+          return false;
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  void _applyDamage() {
+    // Prevent multiple rapid damage
+    if (_lastDamageTime != null && 
+        DateTime.now().difference(_lastDamageTime!).inMilliseconds < 800) {
+      return;
+    }
+    
+    _lastDamageTime = DateTime.now();
+    _playerHealth--;
+    
+    if (GameSettings.vibrationEnabled) {
+      Vibration.vibrate(duration: 200);
+    }
+    
+    if (GameSettings.soundEnabled) {
+      AudioPlayer().play(AssetSource('audio/hit.mp3'));
+    }
+    
+    // Trigger shake
+    _shakeEndTime = DateTime.now().add(const Duration(milliseconds: 200));
+    
+    if (_playerHealth <= 0) {
+      _gameOver();
+    } else {
+      // Knockback effect
+      final playerSnake = snakes.firstWhere((s) => s.isPlayer);
+      final knockbackDirection = Offset(
+        -math.cos(playerSnake.angle) * 35,
+        -math.sin(playerSnake.angle) * 35,
+      );
+      
+      final newHead = playerSnake.head + knockbackDirection;
+      playerSnake.body.add(newHead);
+      
+      if (playerSnake.body.length > 3) {
+        playerSnake.body.removeAt(0);
+      }
+      
+      // Brief invincibility after damage
+      setState(() => _isInvincible = true);
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) setState(() => _isInvincible = false);
+      });
+      
+      // Show health warning
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.favorite, color: Colors.red),
+              const SizedBox(width: 10),
+              Text('Health: $_playerHealth / 3', style: const TextStyle(color: Colors.white, fontSize: 16)),
+            ],
+          ),
+          backgroundColor: Colors.red.shade800,
+          duration: const Duration(milliseconds: 600),
+        ),
+      );
+    }
+  }
+
+  void _checkCollisions() {
+    if (_isInvincible) return;
+    
+    final activeSnakes = snakes.where((s) => s.alive).toList();
+    
+    for (int i = 0; i < activeSnakes.length; i++) {
+      for (int j = i + 1; j < activeSnakes.length; j++) {
+        final snake1 = activeSnakes[i];
+        final snake2 = activeSnakes[j];
+        
+        if ((snake1.head - snake2.head).distance < 22) {
+          if (snake1.body.length > snake2.body.length + 3) {
+            _eatSnake(snake1, snake2);
+          } else if (snake2.body.length > snake1.body.length + 3) {
+            _eatSnake(snake2, snake1);
+          } else {
+            // Both lose health
+            if (snake1.isPlayer) _applyDamage();
+            if (snake2.isPlayer) _applyDamage();
+          }
+        }
+      }
+    }
+  }
+
+  void _eatSnake(SnakeEntity winner, SnakeEntity loser) {
+    if (!loser.alive) return;
+    loser.alive = false;
+    
+    if (loser.isPlayer) {
+      _applyDamage();
+      return;
+    }
+    
+    // Winner grows
+    final growAmount = math.min(6, loser.body.length ~/ 2);
+    for (int i = 0; i < growAmount; i++) {
+      winner.body.insert(0, winner.body.first);
+    }
+    
+    if (winner.isPlayer) {
+      GameSettings.totalPoints += loser.body.length * 8;
+      
+      if (GameSettings.soundEnabled) {
+        AudioPlayer().play(AssetSource('audio/eat.mp3'));
+      }
+    }
+  }
+
+  void _updateEnemyAngle(SnakeEntity enemy) {
+    if (foods.isEmpty) return;
+    
+    final player = snakes.firstWhere((s) => s.isPlayer);
+    final playerDistance = (player.head - enemy.head).distance;
+    
+    if (playerDistance < 180 && enemy.body.length >= player.body.length - 2) {
+      // Chase player
+      final direction = (player.head - enemy.head).direction;
+      enemy.angle = direction + (_rnd.nextDouble() - 0.5) * 0.3;
+    } else {
+      // Chase nearest food
+      final nearestFood = foods.reduce((a, b) {
+        final da = (a.pos - enemy.head).distance;
+        final db = (b.pos - enemy.head).distance;
+        return da < db ? a : b;
+      });
+      final direction = (nearestFood.pos - enemy.head).direction;
+      enemy.angle = direction + (_rnd.nextDouble() - 0.5) * 0.2;
+    }
+  }
+
+  void _gameOver() {
+    gameTimer?.cancel();
+    movementTimer?.cancel();
+    
+    if (GameSettings.soundEnabled) {
+      AudioPlayer().play(AssetSource('audio/die.mp3'));
+    }
+    if (GameSettings.vibrationEnabled) {
+      Vibration.vibrate(duration: 500);
+    }
+    
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('💀 GAME OVER 💀', style: TextStyle(color: Colors.red)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Points: ${GameSettings.totalPoints}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text('Level: ${GameSettings.level}', style: const TextStyle(fontSize: 16)),
+              Text('High Score: ${GameSettings.highScore}', style: const TextStyle(color: Colors.yellow)),
+              const SizedBox(height: 10),
+              const Text('Try again to beat your best score!', textAlign: TextAlign.center),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _resetGame();
+                _startGameLoop();
+              },
+              style: TextButton.styleFrom(backgroundColor: Colors.green),
+              child: const Text('RESTART', style: TextStyle(color: Colors.white)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+              child: const Text('MAIN MENU'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    backgroundMusic?.dispose();
+    gameTimer?.cancel();
+    movementTimer?.cancel();
+    _smoothController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final playerSnake = snakes.firstWhere((s) => s.isPlayer);
+    screenSize = MediaQuery.of(context).size;
+    
+    return Scaffold(
+      body: Stack(
+        children: [
+          // Parallax Background
+          Positioned.fill(
+            child: Transform.translate(
+              offset: Offset(_backgroundOffsetX, _backgroundOffsetY),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment.center,
+                    radius: 1.5,
+                    colors: [
+                      _getBackgroundColor(),
+                      _getBackgroundColor().withBlue(50),
+                      Colors.black,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          // Game Canvas with shake effect
+          Positioned.fill(
+            child: Transform.translate(
+              offset: Offset(_shakeOffset, _shakeOffset),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onPanUpdate: (details) {
+                  if (details.delta.distance > 3) {
+                    setState(() {
+                      angle = details.delta.direction;
+                    });
+                  }
+                },
+                child: CustomPaint(
+                  painter: GamePainter(snakes, foods, screenSize),
+                  size: screenSize,
+                ),
+              ),
+            ),
+          ),
+          
+          // Health Bar
+          Positioned(
+            top: 50,
+            left: 20,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                children: [
+                  ...List.generate(_playerHealth, (index) => 
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 2),
+                      child: Icon(Icons.favorite, color: Colors.red, size: 24),
+                    )),
+                  ...List.generate(3 - _playerHealth, (index) => 
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 2),
+                      child: Icon(Icons.favorite_border, color: Colors.grey, size: 24),
+                    )),
+                ],
+              ),
+            ),
+          ),
+          
+          // Score Display
+          Positioned(
+            top: 50,
+            right: 20,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('🎯 ${GameSettings.totalPoints}', 
+                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text('⭐ Level ${GameSettings.level}', 
+                    style: const TextStyle(color: Colors.yellow, fontSize: 14)),
+                  Text('🐍 ${playerSnake.body.length}', 
+                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                ],
+              ),
+            ),
+          ),
+          
+          // Speed Indicator
+          Positioned(
+            bottom: 20,
+            left: 20,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Text('⚡ Speed: ${(_currentSpeed / _baseSpeed).toStringAsFixed(1)}x',
+                style: const TextStyle(color: Colors.cyan, fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
+          ),
+          
+          // Invincibility Indicator
+          if (_isInvincible)
+            Positioned(
+              top: 120,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.yellow.shade800,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text('✨ INVINCIBLE ✨', 
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ),
+          
+          // Danger Warning
+          if (isDanger && !_isInvincible)
+            Positioned(
+              top: 120,
+              left: 20,
+              right: 20,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade700.withAlpha(220),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(color: Colors.red, blurRadius: 10, spreadRadius: 1),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.warning, color: Colors.white),
+                    SizedBox(width: 10),
+                    Text('⚠️ DANGER: ENEMY NEARBY! ⚠️',
+                      style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ),
+          
+          // Directional Pad
+          Positioned(
+            bottom: 30,
+            left: 20,
+            child: Column(
+              children: [
+                _controlButton(Icons.arrow_upward, -math.pi / 2),
+                Row(children: [
+                  _controlButton(Icons.arrow_back, math.pi),
+                  const SizedBox(width: 30),
+                  _controlButton(Icons.arrow_forward, 0),
+                ]),
+                _controlButton(Icons.arrow_downward, math.pi / 2),
+              ],
+            ),
+          ),
+          
+          // Turbo Button
+          Positioned(
+            bottom: 60,
+            right: 20,
+            child: GestureDetector(
+              onLongPressStart: (_) => setState(() => isTurbo = true),
+              onLongPressEnd: (_) => setState(() => isTurbo = false),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 100),
+                width: isTurbo ? 90 : 75,
+                height: isTurbo ? 90 : 75,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: isTurbo ? [Colors.red, Colors.red.shade800] : [Colors.orange, Colors.orange.shade800],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isTurbo ? Colors.red : Colors.orange,
+                      blurRadius: isTurbo ? 20 : 10,
+                      spreadRadius: isTurbo ? 3 : 1,
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.flash_on, color: Colors.white, size: 28),
+                      Text('TURBO', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          // Mini Radar
+          Positioned(
+            top: 120,
+            left: 20,
+            child: Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: CustomPaint(
+                painter: RadarPainter(playerSnake.head, foods, screenSize),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _controlButton(IconData icon, double a) => GestureDetector(
+        onTap: () => setState(() => angle = a),
+        child: Container(
+          margin: const EdgeInsets.all(6),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.black87, Colors.black54],
+            ),
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(color: Colors.black45, blurRadius: 5, offset: const Offset(0, 2)),
+            ],
+          ),
+          child: Icon(icon, size: 30, color: Colors.white),
+        ),
+      );
+  
+  Color _getBackgroundColor() {
+    switch (GameSettings.currentBackground) {
+      case 'forest': return Colors.green.shade900;
+      case 'desert': return Colors.orange.shade900;
+      case 'city': return Colors.blueGrey.shade900;
+      case 'night': return Colors.indigo.shade900;
+      case 'space': return Colors.purple.shade900;
+      case 'ocean': return Colors.blue.shade900;
+      case 'volcano': return Colors.red.shade900;
+      case 'iceworld': return Colors.cyan.shade900;
+      default: return Colors.teal.shade900;
+    }
+  }
+}
+
+class GamePainter extends CustomPainter {
+  final List<SnakeEntity> snakes;
+  final List<FoodItem> foods;
+  final Size screenSize;
+
+  GamePainter(this.snakes, this.foods, this.screenSize);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Draw glow effect for food
+    for (final food in foods) {
+      final glowPaint = Paint()
+        ..color = food.color.withAlpha(40)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+      canvas.drawCircle(food.pos, 22, glowPaint);
+      
+      // Draw food
+      final textPainter = TextPainter(
+        text: TextSpan(text: food.emoji, style: const TextStyle(fontSize: 30)),
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(canvas, food.pos - Offset(textPainter.width / 2, textPainter.height / 2));
+    }
+
+    // Draw snakes
+    for (final snake in snakes) {
+      if (!snake.alive) continue;
+      
+      // Draw body first
+      for (int i = 0; i < snake.body.length - 1; i++) {
+        _drawSegment(canvas, snake, i, false);
+      }
+      // Draw head last
+      if (snake.body.isNotEmpty) {
+        _drawSegment(canvas, snake, snake.body.length - 1, true);
+      }
+    }
+  }
+
+  void _drawSegment(Canvas canvas, SnakeEntity snake, int index, bool isHead) {
+    final pos = snake.body[index];
+    final double size = isHead ? 28 : 22;
+    
+    // Calculate angle for smooth rotation
+    double angle = snake.angle;
+    if (index < snake.body.length - 1) {
+      final nextPos = snake.body[index + 1];
+      angle = math.atan2(nextPos.dy - pos.dy, nextPos.dx - pos.dx);
+    }
+    
+    canvas.save();
+    canvas.translate(pos.dx, pos.dy);
+    canvas.rotate(angle);
+    
+    // Shadow effect
+    final shadowPaint = Paint()
+      ..color = Colors.black38
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: const Offset(2, 2), width: size, height: size),
+        Radius.circular(isHead ? 14 : 11),
+      ),
+      shadowPaint,
+    );
+    
+    // Main body
+    final paint = Paint()..color = snake.color;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset.zero, width: size, height: size),
+        Radius.circular(isHead ? 14 : 11),
+      ),
+      paint,
+    );
+    
+    // Highlight effect
+    if (!isHead) {
+      final highlightPaint = Paint()
+        ..color = Colors.white.withAlpha(40)
+        ..style = PaintingStyle.fill;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: const Offset(-3, -3), width: size - 6, height: size - 6),
+          Radius.circular((size - 6) / 2),
+        ),
+        highlightPaint,
+      );
+    }
+    
+    // Eyes for head
+    if (isHead) {
+      final eyePaint = Paint()..color = Colors.white;
+      canvas.drawCircle(const Offset(-9, -8), 5, eyePaint);
+      canvas.drawCircle(const Offset(9, -8), 5, eyePaint);
+      
+      final pupilPaint = Paint()..color = Colors.black;
+      canvas.drawCircle(const Offset(-8, -8), 3, pupilPaint);
+      canvas.drawCircle(const Offset(10, -8), 3, pupilPaint);
+      
+      // Tongue
+      final tonguePaint = Paint()..color = Colors.red;
+      canvas.drawLine(const Offset(0, 12), const Offset(0, 20), tonguePaint..strokeWidth = 3);
+    }
+    
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class RadarPainter extends CustomPainter {
+  final Offset player;
+  final List<FoodItem> foods;
+  final Size screenSize;
+
+  RadarPainter(this.player, this.foods, this.screenSize);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..color = Colors.white54;
+    
+    canvas.drawRect(Offset.zero & size, paint);
+    
+    final double scaleX = size.width / screenSize.width;
+    final double scaleY = size.height / screenSize.height;
+    
+    // Draw player
+    paint.color = Colors.greenAccent;
+    paint.style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(player.dx * scaleX, player.dy * scaleY), 4, paint);
+    
+    // Draw food
+    paint.color = Colors.yellow;
+    for (final food in foods) {
+      canvas.drawCircle(Offset(food.pos.dx * scaleX, food.pos.dy * scaleY), 2.5, paint);
+    }
+    
+    // Draw radar sweep effect
+    paint.color = Colors.white.withAlpha(30);
+    paint.style = PaintingStyle.fill;
+    // Sweep animation would go here
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Settings'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.green.shade900, Colors.teal.shade900],
+          ),
+        ),
+        child: ListView(
+          children: [
+            const SizedBox(height: 20),
+            _buildCard(
+              child: SwitchListTile(
+                title: const Text('🔊 Sound Effects', style: TextStyle(color: Colors.white, fontSize: 18)),
+                subtitle: const Text('Enable/disable game audio', style: TextStyle(color: Colors.white70)),
+                value: GameSettings.soundEnabled,
+                onChanged: (value) => setState(() => GameSettings.soundEnabled = value),
+                activeColor: Colors.green,
+              ),
+            ),
+            _buildCard(
+              child: SwitchListTile(
+                title: const Text('📳 Vibration', style: TextStyle(color: Colors.white, fontSize: 18)),
+                subtitle: const Text('Enable/disable haptic feedback', style: TextStyle(color: Colors.white70)),
+                value: GameSettings.vibrationEnabled,
+                onChanged: (value) => setState(() => GameSettings.vibrationEnabled = value),
+                activeColor: Colors.green,
+              ),
+            ),
+            _buildCard(
+              child: ListTile(
+                leading: const Icon(Icons.info, color: Colors.white),
+                title: const Text('About', style: TextStyle(color: Colors.white, fontSize: 18)),
+                subtitle: const Text('Snake Battle v2.0 - Classic Snake Game', style: TextStyle(color: Colors.white70)),
+                trailing: const Icon(Icons.chevron_right, color: Colors.white),
+                onTap: () => _showAboutDialog(context),
+              ),
+            ),
+            const SizedBox(height: 40),
+            Container(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  const Text('Game Features', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  _buildFeature('Progressive Speed', 'Speed increases with score'),
+                  _buildFeature('Health System', '3 lives instead of instant death'),
+                  _buildFeature('Parallax Background', 'Dynamic moving backgrounds'),
+                  _buildFeature('Enemy AI', 'Chasing enemies that eat food'),
+                  _buildFeature('Shop System', 'Buy skins and backgrounds'),
+                  _buildFeature('Turbo Mode', 'Hold for temporary speed boost'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildCard({required Widget child}) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(30),
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: child,
+    );
+  }
+  
+  Widget _buildFeature(String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle, color: Colors.green, size: 20),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+              Text(description, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('About Snake Battle'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.catching_pokemon, size: 60, color: Colors.green),
+            SizedBox(height: 10),
+            Text('Snake Battle v2.0', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            SizedBox(height: 5),
+            Text('A modern take on the classic Snake game'),
+            SizedBox(height: 10),
+            Text('Features:', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('• Smooth movement'),
+            Text('• Progressive difficulty'),
+            Text('• Shop system'),
+            Text('• Multiple skins'),
+            Text('• Enemy AI'),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+}
+
+class StoreScreen extends StatefulWidget {
+  const StoreScreen({super.key});
+
+  @override
+  State<StoreScreen> createState() => _StoreScreenState();
+}
+
+class _StoreScreenState extends State<StoreScreen> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Store'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.green.shade900, Colors.teal.shade900],
+          ),
+        ),
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Container(
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('💰 Your Points:', style: TextStyle(color: Colors.white, fontSize: 20)),
+                    Text('${GameSettings.totalPoints}', 
+                      style: const TextStyle(color: Colors.yellow, fontSize: 28, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('🐍 SNAKE SKINS', 
+                      style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    ...GameSettings.skins.map((skin) => _buildSkinCard(skin)),
+                    const SizedBox(height: 30),
+                    const Text('🌍 BACKGROUNDS', 
+                      style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    ...GameSettings.backgrounds.map((bg) => _buildBackgroundCard(bg)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildSkinCard(SnakeSkin skin) {
+    final isUnlocked = GameSettings.unlockedSkins[skin.id] == true;
+    final isSelected = GameSettings.currentSkinId == skin.id;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(30),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: isSelected ? Colors.green : Colors.white24, width: 2),
+      ),
+      child: ListTile(
+        leading: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: skin.color,
+            borderRadius: BorderRadius.circular(25),
+            boxShadow: [BoxShadow(color: skin.color, blurRadius: 10)],
+          ),
+          child: const Center(child: Icon(Icons.circle, color: Colors.white, size: 30)),
+        ),
+        title: Text(skin.name, style: const TextStyle(color: Colors.white, fontSize: 18)),
+        subtitle: Text(isUnlocked ? (isSelected ? 'Selected' : 'Tap to select') : 'Price: ${skin.price} points',
+          style: TextStyle(color: isSelected ? Colors.green : Colors.white70)),
+        trailing: isUnlocked 
+          ? (isSelected 
+              ? const Icon(Icons.check_circle, color: Colors.green, size: 30)
+              : TextButton(
+                  onPressed: () => _selectSkin(skin),
+                  child: const Text('SELECT', style: TextStyle(color: Colors.green)),
+                ))
+          : TextButton(
+              onPressed: () => _buySkin(skin),
+              child: Text('BUY ${skin.price}', style: const TextStyle(color: Colors.orange)),
+            ),
+      ),
+    );
+  }
+  
+  Widget _buildBackgroundCard(BackgroundPack bg) {
+    final isUnlocked = GameSettings.unlockedBackgrounds[bg.id] == true;
+    final isSelected = GameSettings.currentBackground == bg.id;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(30),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: isSelected ? Colors.green : Colors.white24, width: 2),
+      ),
+      child: ListTile(
+        leading: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            gradient: RadialGradient(colors: [Colors.blue, _getBackgroundColor(bg.id)]),
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        title: Text(bg.name, style: const TextStyle(color: Colors.white, fontSize: 18)),
+        subtitle: Text(isUnlocked ? (isSelected ? 'Selected' : 'Tap to select') : 'Price: ${bg.price} points',
+          style: TextStyle(color: isSelected ? Colors.green : Colors.white70)),
+        trailing: isUnlocked
+          ? (isSelected
+              ? const Icon(Icons.check_circle, color: Colors.green, size: 30)
+              : TextButton(
+                  onPressed: () => _selectBackground(bg),
+                  child: const Text('SELECT', style: TextStyle(color: Colors.green)),
+                ))
+          : TextButton(
+              onPressed: () => _buyBackground(bg),
+              child: Text('BUY ${bg.price}', style: const TextStyle(color: Colors.orange)),
+            ),
+      ),
+    );
+  }
+  
+  void _buySkin(SnakeSkin skin) {
+    if (GameSettings.totalPoints >= skin.price) {
+      setState(() {
+        GameSettings.totalPoints -= skin.price;
+        GameSettings.unlockedSkins[skin.id] = true;
+        GameSettings.currentSkinId = skin.id;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Skin purchased!'), backgroundColor: Colors.green),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Need ${skin.price - GameSettings.totalPoints} more points!'), backgroundColor: Colors.red),
+      );
+    }
+  }
+  
+  void _selectSkin(SnakeSkin skin) {
+    setState(() => GameSettings.currentSkinId = skin.id);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${skin.name} equipped!'), backgroundColor: Colors.green),
+    );
+  }
+  
+  void _buyBackground(BackgroundPack bg) {
+    if (GameSettings.totalPoints >= bg.price) {
+      setState(() {
+        GameSettings.totalPoints -= bg.price;
+        GameSettings.unlockedBackgrounds[bg.id] = true;
+        GameSettings.currentBackground = bg.id;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Background purchased!'), backgroundColor: Colors.green),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Need ${bg.price - GameSettings.totalPoints} more points!'), backgroundColor: Colors.red),
+      );
+    }
+  }
+  
+  void _selectBackground(BackgroundPack bg) {
+    setState(() => GameSettings.currentBackground = bg.id);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${bg.name} background equipped!'), backgroundColor: Colors.green),
+    );
+  }
+  
+  Color _getBackgroundColor(String id) {
+    switch (id) {
+      case 'forest': return Colors.green;
+      case 'desert': return Colors.orange;
+      case 'city': return Colors.blueGrey;
+      case 'night': return Colors.indigo;
+      case 'space': return Colors.purple;
+      case 'ocean': return Colors.blue;
+      case 'volcano': return Colors.red;
+      case 'iceworld': return Colors.cyan;
+      default: return Colors.teal;
+    }
+  }
+}
