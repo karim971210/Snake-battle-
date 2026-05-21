@@ -17,11 +17,11 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.12.0'
-          cache: true
+      - name: Install Flutter SDK (shallow clone)
+        run: |
+          git clone https://github.com/flutter/flutter.git -b stable --depth 1 $HOME/flutter
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
+          flutter --version
 
       - name: Accept Android licenses
         run: |
